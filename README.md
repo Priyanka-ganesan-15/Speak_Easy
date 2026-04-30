@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Speak Easy
 
-## Getting Started
+Speak Easy is a public speaking trainer web app.
 
-First, run the development server:
+This repository is currently in a **UI-first phase**:
+- complete front-end experience and flow
+- mock data and interactions
+- no Supabase/auth backend wiring yet
+- no AI/ML processing pipeline yet
+
+## Current UI Scope
+
+- Landing page explaining public speaking value and product journey
+- Sign-in page with provider options (Google, Apple, email, magic link) as UI placeholders
+- Dashboard with progress cards, session history, and trend views
+- Practice page with:
+  - topic wheel over a 1000-topic mock library
+  - prep timer options: 1, 3, 5, 10 minutes
+  - speech timer options: 1, 3, 5, 10 minutes
+
+## Routes
+
+- `/` landing page
+- `/signin` sign-in UI
+- `/dashboard` user dashboard UI
+- `/practice` topic wheel + timer workflow UI
+
+## Run Locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Next Phases
 
-To learn more about Next.js, take a look at the following resources:
+1. Supabase backend integration
+	- real auth with Google, Apple, email/password, magic link
+	- persisted users/sessions/topics
+2. AI/ML and data layer
+	- speech-to-text pipeline
+	- scoring and coaching feedback
+	- analytics persistence for pace, volume, pronunciation trends
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

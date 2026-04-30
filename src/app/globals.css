@@ -1,26 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f2e8;
+  --foreground: #1e1b16;
+  --paper: #fefbf5;
+  --paper-soft: #f3ebde;
+  --ink: #1e1b16;
+  --ink-soft: #625646;
+  --highlight: #ffbf47;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), serif;
+}
+
+.hero-glow {
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 191, 71, 0.46), transparent 38%),
+    radial-gradient(circle at 80% 0%, rgba(255, 140, 65, 0.32), transparent 35%),
+    linear-gradient(160deg, #fef7ec 0%, #f4ecdd 52%, #efe5d6 100%);
+}
+
+.fade-rise {
+  animation: fade-rise 640ms ease-out both;
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
