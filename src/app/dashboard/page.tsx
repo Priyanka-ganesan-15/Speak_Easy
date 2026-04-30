@@ -3,22 +3,101 @@ import { TopNav } from "@/components/top-nav";
 import { StatCard } from "@/components/stat-card";
 import { TrendBars } from "@/components/trend-bars";
 import { ViewportReveal } from "@/components/viewport-reveal";
+import { createClient } from "@/lib/supabase/server";
 import {
   coachingSignals,
   pauseDistribution,
-  recentSessions,
   rubricScores,
-  statsCards,
   trendData,
-  userGoals,
-  weeklyActuals,
   weeklyDeliverySeries,
 } from "@/lib/mock-data";
+
+export const dynamic = 'force-dynamic';
 
 const RING_R = 36;
 const RING_C = 2 * Math.PI * RING_R;
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  // ── fetch authenticated user ──────────────────────────────────────────────
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // ── profile ───────────────────────────────────────────────────────────────
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("display_name").eq("id", user.id).single()
+    : { data: null };
+
+  const displayName = profile?.display_name?.split(" ")[0] ?? "there";
+
+  // ── goals ─────────────────────────────────────────────────────────────────
+  const { data: goalsRow } = user
+    ? await supabase.from("user_goals").select("target_wpm, sessions_per_week, minutes_per_session").eq("user_id", user.id).single()
+    : { data: null };
+
+  const userGoals = goalsRow
+    ? { targetWpm: goalsRow.target_wpm, sessionsPerWeek: goalsRow.sessions_per_week, minutesPerSession: goalsRow.minutes_per_session }
+    : { targetWpm: 140, sessionsPerWeek: 3, minutesPerSession: 10 };
+
+  // ── weekly actuals (current ISO week) ────────────────────────────────────
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+
+  const { data: weekSessions } = user
+    ? await supabase
+        .from("practice_sessions")
+        .select("speech_seconds, wpm")
+        .eq("user_id", user.id)
+        .gte("completed_at", weekStart.toISOString())
+    : { data: [] };
+
+  const sessionsArr = weekSessions ?? [];
+  const weeklyActuals = {
+    sessionsCompleted: sessionsArr.length,
+    minutesPracticed: Math.round(sessionsArr.reduce((s, r) => s + (r.speech_seconds ?? 0), 0) / 60),
+    avgWpm: sessionsArr.length
+      ? Math.round(sessionsArr.reduce((s, r) => s + (r.wpm ?? 0), 0) / sessionsArr.length)
+      : 0,
+  };
+
+  // ── recent sessions (last 5) ──────────────────────────────────────────────
+  const { data: sessionsData } = user
+    ? await supabase
+        .from("practice_sessions")
+        .select("id, topic, wpm, speech_seconds, completed_at")
+        .eq("user_id", user.id)
+        .order("completed_at", { ascending: false })
+        .limit(5)
+    : { data: [] };
+
+  const recentSessions = (sessionsData ?? []).map((s) => ({
+    date: new Date(s.completed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    topic: s.topic,
+    score: s.wpm ? Math.round(Math.min((s.wpm / 160) * 100, 100)) : 0,
+    duration: `${Math.floor((s.speech_seconds ?? 0) / 60)}m ${(s.speech_seconds ?? 0) % 60}s`,
+  }));
+
+  // ── stats cards ───────────────────────────────────────────────────────────
+  const { data: allSessions } = user
+    ? await supabase
+        .from("practice_sessions")
+        .select("wpm, speech_seconds")
+        .eq("user_id", user.id)
+    : { data: [] };
+
+  const all = allSessions ?? [];
+  const totalMinutes = Math.round(all.reduce((s, r) => s + (r.speech_seconds ?? 0), 0) / 60);
+  const avgWpmAll = all.length
+    ? Math.round(all.reduce((s, r) => s + (r.wpm ?? 0), 0) / all.length)
+    : 0;
+
+  const statsCards = [
+    { label: "Total sessions", value: String(all.length), delta: "" },
+    { label: "Avg WPM", value: avgWpmAll > 0 ? String(avgWpmAll) : "—", delta: "" },
+    { label: "Minutes practiced", value: String(totalMinutes), delta: "" },
+    { label: "This week", value: String(weeklyActuals.sessionsCompleted), delta: "" },
+  ];
   return (
     <div className="min-h-screen glass-page">
       <TopNav />
@@ -30,7 +109,7 @@ export default function DashboardPage() {
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,#00000026,transparent)]" />
 
           <p className="text-sm uppercase tracking-[0.16em] text-[color:var(--ink-soft)]">Dashboard</p>
-          <h1 className="mt-4 font-display text-5xl leading-tight text-[color:var(--ink)]">Welcome back, Priyanka.</h1>
+          <h1 className="mt-4 font-display text-5xl leading-tight text-[color:var(--ink)]">Welcome back, {displayName}.</h1>
           <p className="mt-4 max-w-2xl text-[color:var(--ink-soft)]">
             Your delivery quality is improving with stronger structure and fewer long pauses. Next focus area is vocal
             variety across the middle of longer talks.
@@ -70,7 +149,7 @@ export default function DashboardPage() {
         </ViewportReveal>
 
         <ViewportReveal delayMs={100}>
-          <WeeklyGoals />
+          <WeeklyGoals userGoals={userGoals} weeklyActuals={weeklyActuals} />
         </ViewportReveal>
 
         <ViewportReveal delayMs={120}>
@@ -180,7 +259,13 @@ function GoalRing({
   );
 }
 
-function WeeklyGoals() {
+function WeeklyGoals({
+  userGoals,
+  weeklyActuals,
+}: {
+  userGoals: { targetWpm: number; sessionsPerWeek: number; minutesPerSession: number };
+  weeklyActuals: { sessionsCompleted: number; minutesPracticed: number; avgWpm: number };
+}) {
   const totalMinutesGoal = userGoals.sessionsPerWeek * userGoals.minutesPerSession;
 
   const goals = [

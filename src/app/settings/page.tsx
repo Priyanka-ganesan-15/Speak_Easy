@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/top-nav";
-import { userGoals } from "@/lib/mock-data";
-// Phase 2: replace userGoals import with a Supabase fetch from the user_goals table.
-// Both this page (write) and the dashboard (read) should point at the same data source.
+import { createClient } from "@/lib/supabase/client";
 
 // ─── tiny reusable primitives ─────────────────────────────────────────────────
 
@@ -108,34 +108,99 @@ function SaveButton({ onClick, saved }: { onClick: () => void; saved: boolean })
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const router = useRouter();
+
+  // Lazy-initialize the Supabase client — only in the browser to avoid SSR init
+  const getSupabase = () => createClient();
+
   // Profile
-  const [displayName, setDisplayName] = useState("Priyanka Ganesan");
-  const [username, setUsername]       = useState("priyanka");
-  const [email]                       = useState("priyanka@example.com");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail]             = useState("");
   const [bio, setBio]                 = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
 
   // Goals
-  // Goals — initialised from the shared mock; Phase 2: seed from Supabase user_goals row
-  const [goalWpm, setGoalWpm]           = useState(String(userGoals.targetWpm));
-  const [goalSessions, setGoalSessions] = useState(String(userGoals.sessionsPerWeek));
-  const [goalMinutes, setGoalMinutes]   = useState(String(userGoals.minutesPerSession));
-  const [goalSaved, setGoalSaved]     = useState(false);
+  const [goalWpm, setGoalWpm]           = useState("140");
+  const [goalSessions, setGoalSessions] = useState("3");
+  const [goalMinutes, setGoalMinutes]   = useState("10");
+  const [goalSaved, setGoalSaved]       = useState(false);
 
   // Notifications
-  const [emailDigest, setEmailDigest]     = useState(true);
+  const [emailDigest, setEmailDigest]         = useState(true);
   const [sessionReminder, setSessionReminder] = useState(true);
-  const [milestones, setMilestones]       = useState(true);
-  const [notifSaved, setNotifSaved]       = useState(false);
+  const [milestones, setMilestones]           = useState(true);
+  const [notifSaved, setNotifSaved]           = useState(false);
 
   // Privacy
   const [publicProfile, setPublicProfile] = useState(false);
   const [shareProgress, setShareProgress] = useState(false);
   const [privacySaved, setPrivacySaved]   = useState(false);
 
-  function save(setSaved: (v: boolean) => void) {
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // ── load data on mount ──────────────────────────────────────────────────────
+  useEffect(() => {
+    async function load() {
+      const supabase = getSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+      setEmail(user.email ?? "");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .single();
+      if (profile) setDisplayName(profile.display_name ?? "");
+
+      const { data: goals } = await supabase
+        .from("user_goals")
+        .select("target_wpm, sessions_per_week, minutes_per_session")
+        .eq("user_id", user.id)
+        .single();
+      if (goals) {
+        setGoalWpm(String(goals.target_wpm));
+        setGoalSessions(String(goals.sessions_per_week));
+        setGoalMinutes(String(goals.minutes_per_session));
+      }
+    }
+    load();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function flash(setSaved: (v: boolean) => void) {
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function saveProfile() {
+    if (!userId) return;
+    const supabase = getSupabase();
+    await supabase
+      .from("profiles")
+      .update({ display_name: displayName, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+    flash(setProfileSaved);
+  }
+
+  async function saveGoals() {
+    if (!userId) return;
+    const supabase = getSupabase();
+    await supabase.from("user_goals").upsert({
+      user_id: userId,
+      target_wpm: Number(goalWpm) || 140,
+      sessions_per_week: Number(goalSessions) || 3,
+      minutes_per_session: Number(goalMinutes) || 10,
+      updated_at: new Date().toISOString(),
+    });
+    flash(setGoalSaved);
+  }
+
+  async function handleSignOut() {
+    const supabase = getSupabase();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -157,7 +222,7 @@ export default function SettingsPage() {
             {/* Avatar */}
             <div className="mb-6 flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[color:var(--ink)] text-2xl font-bold text-[color:var(--highlight)]">
-                {displayName.charAt(0)}
+                {displayName.charAt(0) || "?"}
               </div>
               <div>
                 <button
@@ -174,9 +239,6 @@ export default function SettingsPage() {
               <Field label="Display name">
                 <TextInput value={displayName} onChange={setDisplayName} placeholder="Your name" />
               </Field>
-              <Field label="Username" hint="speakeasy.app/@username">
-                <TextInput value={username} onChange={setUsername} placeholder="username" />
-              </Field>
               <Field label="Email" hint="Managed by your sign-in provider.">
                 <TextInput value={email} onChange={() => {}} disabled />
               </Field>
@@ -186,7 +248,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="mt-6">
-              <SaveButton onClick={() => save(setProfileSaved)} saved={profileSaved} />
+              <SaveButton onClick={saveProfile} saved={profileSaved} />
             </div>
           </SectionCard>
 
@@ -204,7 +266,7 @@ export default function SettingsPage() {
               </Field>
             </div>
             <div className="mt-6">
-              <SaveButton onClick={() => save(setGoalSaved)} saved={goalSaved} />
+              <SaveButton onClick={saveGoals} saved={goalSaved} />
             </div>
           </SectionCard>
 
@@ -216,7 +278,7 @@ export default function SettingsPage() {
               <Toggle enabled={milestones}      onChange={setMilestones}      label="Milestone and achievement alerts" />
             </div>
             <div className="mt-6">
-              <SaveButton onClick={() => save(setNotifSaved)} saved={notifSaved} />
+              <SaveButton onClick={() => flash(setNotifSaved)} saved={notifSaved} />
             </div>
           </SectionCard>
 
@@ -227,7 +289,7 @@ export default function SettingsPage() {
               <Toggle enabled={shareProgress}  onChange={setShareProgress}  label="Share progress with coaches" />
             </div>
             <div className="mt-6">
-              <SaveButton onClick={() => save(setPrivacySaved)} saved={privacySaved} />
+              <SaveButton onClick={() => flash(setPrivacySaved)} saved={privacySaved} />
             </div>
           </SectionCard>
 
@@ -254,12 +316,13 @@ export default function SettingsPage() {
                   Revokes all active sessions on every device.
                 </p>
               </div>
-              <Link
-                href="/signin"
+              <button
+                type="button"
+                onClick={handleSignOut}
                 className="flex-none rounded-full border border-black/20 px-5 py-2 text-center text-sm font-semibold text-[color:var(--ink)] transition hover:bg-black/5 active:scale-95"
               >
                 Sign out
-              </Link>
+              </button>
             </div>
           </SectionCard>
 
