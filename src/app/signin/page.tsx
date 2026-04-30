@@ -10,10 +10,10 @@ const providers = [
 
 export default function SignInPage() {
   return (
-    <div className="min-h-screen hero-glow">
+    <div className="min-h-screen glass-page">
       <TopNav />
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-5 pb-16 pt-10 md:grid-cols-[1.2fr_1fr] md:px-8">
-        <section className="rounded-3xl border border-black/10 bg-[color:var(--paper)] p-8 shadow-[0_16px_40px_rgba(0,0,0,0.08)] md:p-10">
+        <section className="glass-surface-strong rounded-3xl p-8 md:p-10">
           <p className="text-sm uppercase tracking-[0.16em] text-[color:var(--ink-soft)]">Account Access</p>
           <h1 className="mt-4 font-display text-5xl leading-tight text-[color:var(--ink)]">Sign in to start your next speaking sprint.</h1>
           <p className="mt-4 text-[color:var(--ink-soft)]">
@@ -35,7 +35,7 @@ export default function SignInPage() {
           </p>
         </section>
 
-        <aside className="rounded-3xl border border-black/10 bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+        <aside className="glass-surface rounded-3xl p-6">
           <h2 className="font-display text-3xl text-[color:var(--ink)]">What happens after sign in</h2>
           <ul className="mt-4 space-y-3 text-sm text-[color:var(--ink-soft)]">
             <li>1. Spin from a 1000-topic library.</li>
@@ -46,7 +46,7 @@ export default function SignInPage() {
           </ul>
           <Link
             href="/dashboard"
-            className="mt-6 inline-flex rounded-full bg-[color:var(--ink)] px-5 py-2 text-sm font-medium text-white transition hover:bg-black"
+            className="mt-6 inline-flex rounded-full bg-[color:var(--ink)] px-5 py-2 text-sm font-medium text-white shadow-[0_10px_22px_rgba(30,27,22,0.24)] transition hover:bg-black"
           >
             Continue to Dashboard Mock
           </Link>

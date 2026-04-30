@@ -89,10 +89,10 @@ export function TopicWheel({ topics }: TopicWheelProps) {
   });
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+    <section className="glass-surface overflow-hidden rounded-3xl">
 
       {/* ── header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 border-b border-black/8 bg-[color:var(--paper-soft)] px-6 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-white/40 bg-white/36 px-6 py-4 backdrop-blur-sm">
         <div>
           <h2 className="font-display text-2xl text-[color:var(--ink)]">Topic Reel</h2>
           <p className="text-sm text-[color:var(--ink-soft)]">1 000 prompts — spins to one at random</p>
@@ -122,9 +122,9 @@ export function TopicWheel({ topics }: TopicWheelProps) {
         />
 
         {/* Top fade */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-32 bg-gradient-to-b from-white via-white/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-32 bg-gradient-to-b from-white/80 via-white/60 to-transparent" />
         {/* Bottom fade */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32 bg-gradient-to-t from-white via-white/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32 bg-gradient-to-t from-white/80 via-white/60 to-transparent" />
 
         {/* Separator lines (like the reference image) */}
         <div className="pointer-events-none absolute inset-x-3 z-30 h-px bg-[color:var(--highlight)]/60" style={{ top: HALF * ITEM_H }} />
@@ -160,7 +160,7 @@ export function TopicWheel({ topics }: TopicWheelProps) {
 
       {/* ── result card ────────────────────────────────────────────────────── */}
       <div
-        className={`m-4 rounded-2xl bg-[color:var(--ink)] p-5 text-white transition-all duration-500 ${
+        className={`m-4 rounded-2xl border border-white/35 bg-[linear-gradient(140deg,rgba(30,27,22,0.85),rgba(48,37,26,0.75))] p-5 text-white backdrop-blur-md transition-all duration-500 ${
           justLanded
             ? "shadow-[0_0_0_3px_#ffbf47,0_14px_32px_rgba(0,0,0,0.16)]"
             : "shadow-[0_4px_12px_rgba(0,0,0,0.12)]"

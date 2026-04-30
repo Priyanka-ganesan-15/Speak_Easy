@@ -11,7 +11,7 @@ type TrendBarsProps = {
 
 export function TrendBars({ rows }: TrendBarsProps) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#fff9ee_100%)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-300 hover:shadow-[0_18px_38px_rgba(0,0,0,0.12)]">
+    <div className="glass-surface rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5">
       <h3 className="font-display text-xl text-[color:var(--ink)]">Progress Trends</h3>
       <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Weekly snapshots from your recent sessions</p>
       <div className="mt-6 space-y-4">

@@ -19,10 +19,10 @@ const RING_C = 2 * Math.PI * RING_R;
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen hero-glow">
+    <div className="min-h-screen glass-page">
       <TopNav />
       <main className="mx-auto w-full max-w-6xl px-5 pb-16 pt-10 md:px-8">
-        <section className="relative overflow-hidden rounded-3xl border border-black/10 bg-[linear-gradient(130deg,#fff5df_0%,#fffdf8_45%,#eaf7ff_100%)] p-8 shadow-[0_16px_40px_rgba(0,0,0,0.08)] md:p-10">
+        <section className="glass-surface-strong relative overflow-hidden rounded-3xl p-8 md:p-10">
           <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[color:var(--highlight)]/35 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-24 right-32 h-56 w-56 rounded-full bg-sky-200/45 blur-3xl" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,#00000026,transparent)]" />
@@ -34,9 +34,9 @@ export default function DashboardPage() {
             variety across the middle of longer talks.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[color:var(--ink)] ring-1 ring-black/10">Streak: 6 days</span>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">Clarity +9 this month</span>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">Filler words down</span>
+            <span className="glass-chip rounded-full px-3 py-1 text-xs font-semibold text-[color:var(--ink)]">Streak: 6 days</span>
+            <span className="glass-chip rounded-full px-3 py-1 text-xs font-semibold text-emerald-700">Clarity +9 this month</span>
+            <span className="glass-chip rounded-full px-3 py-1 text-xs font-semibold text-amber-700">Filler words down</span>
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
@@ -47,7 +47,7 @@ export default function DashboardPage() {
             </Link>
             <button
               type="button"
-              className="rounded-full border border-black/20 bg-white/75 px-6 py-3 text-sm font-medium text-[color:var(--ink)] transition hover:bg-white"
+              className="glass-chip rounded-full px-6 py-3 text-sm font-medium text-[color:var(--ink)] transition hover:bg-white/80"
             >
               Export Weekly Report
             </button>
@@ -64,11 +64,11 @@ export default function DashboardPage() {
 
         <section className="mt-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <TrendBars rows={trendData} />
-          <article className="rounded-2xl border border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#fff8ed_100%)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,0,0,0.12)]">
+          <article className="glass-surface rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5">
             <h2 className="font-display text-2xl text-[color:var(--ink)]">Coaching Signals</h2>
             <div className="mt-4 space-y-3">
               {coachingSignals.map((signal) => (
-                <div key={signal.title} className="rounded-xl border border-black/10 bg-white/80 p-3 backdrop-blur-sm">
+                <div key={signal.title} className="rounded-xl border border-white/45 bg-white/46 p-3 backdrop-blur-sm">
                   <p className="text-sm font-semibold text-[color:var(--ink)]">{signal.title}</p>
                   <p className="mt-1 text-sm text-[color:var(--ink-soft)]">{signal.detail}</p>
                   <p
@@ -91,11 +91,11 @@ export default function DashboardPage() {
 
         <section className="mt-8 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
           <PauseChart />
-          <article className="rounded-2xl border border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#f6fbff_100%)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,0,0,0.12)]">
+          <article className="glass-surface rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5">
             <h2 className="font-display text-2xl text-[color:var(--ink)]">Recent Sessions</h2>
             <div className="mt-4 space-y-3">
               {recentSessions.map((session) => (
-                <div key={`${session.date}-${session.topic}`} className="rounded-xl border border-black/10 bg-white/85 p-3">
+                <div key={`${session.date}-${session.topic}`} className="rounded-xl border border-white/45 bg-white/46 p-3 backdrop-blur-sm">
                   <p className="text-xs uppercase tracking-wide text-[color:var(--ink-soft)]">{session.date}</p>
                   <p className="mt-1 text-sm font-medium text-[color:var(--ink)]">{session.topic}</p>
                   <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
@@ -131,7 +131,7 @@ function GoalRing({
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative">
-        <div className="absolute inset-5 rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
+        <div className="absolute inset-5 rounded-full bg-white/65 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.55)]" />
         <svg width="96" height="96" viewBox="0 0 96 96" className="-rotate-90">
           <circle cx="48" cy="48" r={RING_R} fill="none" stroke="black" strokeOpacity="0.08" strokeWidth="8" />
           <circle
@@ -189,7 +189,7 @@ function WeeklyGoals() {
   const allMet = goals.every((g) => g.actual >= g.target);
 
   return (
-    <section className="mt-8 rounded-3xl border border-black/10 bg-[linear-gradient(145deg,#ffffff_0%,#fef7ea_50%,#eef8ff_100%)] p-6 shadow-[0_12px_30px_rgba(0,0,0,0.08)] md:p-8">
+    <section className="glass-surface mt-8 rounded-3xl p-6 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-2xl text-[color:var(--ink)]">This Week&apos;s Goals</h2>
@@ -257,11 +257,11 @@ function DeliveryChart() {
     .join(" ");
 
   return (
-    <article className="rounded-2xl border border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#fff8eb_100%)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,0,0,0.12)]">
+    <article className="glass-surface rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5">
       <h2 className="font-display text-2xl text-[color:var(--ink)]">Delivery Over 7 Days</h2>
       <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Words per minute vs filler words per minute</p>
 
-      <div className="mt-4 rounded-xl border border-black/10 bg-[color:var(--paper-soft)] p-3">
+      <div className="mt-4 rounded-xl border border-white/45 bg-white/45 p-3 backdrop-blur-sm">
         <svg viewBox="0 0 100 100" className="h-48 w-full" preserveAspectRatio="none" aria-label="Delivery trend chart">
           <polyline fill="none" stroke="#fb8500" strokeWidth="2.5" points={wpmPoints} />
           <polyline fill="none" stroke="#219ebc" strokeWidth="2.5" points={fillerPoints} />
@@ -281,7 +281,7 @@ function DeliveryChart() {
 
 function RubricBreakdown() {
   return (
-    <article className="rounded-2xl border border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#f6fbff_100%)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,0,0,0.12)]">
+    <article className="glass-surface rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5">
       <h2 className="font-display text-2xl text-[color:var(--ink)]">Rubric Breakdown</h2>
       <p className="mt-1 text-sm text-[color:var(--ink-soft)]">How your speech quality is scored</p>
       <div className="mt-5 space-y-3">
@@ -306,7 +306,7 @@ function RubricBreakdown() {
 
 function PauseChart() {
   return (
-    <article className="rounded-2xl border border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#fff8ec_100%)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,0,0,0.12)]">
+    <article className="glass-surface rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5">
       <h2 className="font-display text-2xl text-[color:var(--ink)]">Pause Distribution</h2>
       <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Share of pauses by length during recent sessions</p>
       <div className="mt-5 grid grid-cols-[130px_1fr] items-center gap-4">

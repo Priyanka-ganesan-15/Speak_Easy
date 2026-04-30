@@ -67,7 +67,7 @@ export function SessionTimer() {
   };
 
   return (
-    <section className="rounded-3xl border border-black/10 bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+    <section className="glass-surface rounded-3xl p-6">
       <h2 className="font-display text-2xl text-[color:var(--ink)]">Session Engine</h2>
       <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Pick durations and run a full prep-to-speech cycle.</p>
 
@@ -81,7 +81,7 @@ export function SessionTimer() {
         />
       </div>
 
-      <div className="mt-6 rounded-2xl border border-black/10 bg-[color:var(--paper-soft)] p-5 text-center">
+      <div className="mt-6 rounded-2xl border border-white/45 bg-white/46 p-5 text-center backdrop-blur-sm">
         <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ink-soft)]">Current Phase</p>
         <p className="mt-2 font-display text-3xl text-[color:var(--ink)]">{phaseLabel}</p>
         <p className="mt-2 text-5xl font-bold text-[color:var(--ink)]">{formatTime(Math.max(0, remaining))}</p>
@@ -99,7 +99,7 @@ export function SessionTimer() {
         <button
           type="button"
           onClick={resetSession}
-          className="rounded-full border border-black/20 px-5 py-2 text-sm font-medium text-[color:var(--ink)] transition hover:bg-black/5"
+          className="glass-chip rounded-full px-5 py-2 text-sm font-medium text-[color:var(--ink)] transition hover:bg-white/80"
         >
           Reset
         </button>
@@ -117,7 +117,7 @@ type DurationPickerProps = {
 
 function DurationPicker({ label, value, onChange, disabled }: DurationPickerProps) {
   return (
-    <div className="rounded-2xl border border-black/10 p-4">
+    <div className="rounded-2xl border border-white/45 bg-white/42 p-4 backdrop-blur-sm">
       <p className="text-sm text-[color:var(--ink-soft)]">{label}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {durationOptions.map((option) => (
@@ -129,7 +129,7 @@ function DurationPicker({ label, value, onChange, disabled }: DurationPickerProp
             className={`rounded-full px-3 py-1 text-sm transition ${
               value === option
                 ? "bg-[color:var(--highlight)] text-black"
-                : "border border-black/15 text-[color:var(--ink-soft)] hover:bg-black/5"
+                : "glass-chip text-[color:var(--ink-soft)] hover:bg-white/80"
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {option} min

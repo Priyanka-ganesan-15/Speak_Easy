@@ -15,8 +15,8 @@ function SectionCard({ title, description, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-[color:var(--paper)] p-6 shadow-[0_4px_16px_rgba(0,0,0,0.06)] md:p-8">
-      <div className="mb-6 border-b border-black/8 pb-5">
+    <div className="glass-surface rounded-3xl p-6 md:p-8">
+      <div className="mb-6 border-b border-white/35 pb-5">
         <h2 className="font-display text-xl text-[color:var(--ink)]">{title}</h2>
         {description && <p className="mt-1 text-sm text-[color:var(--ink-soft)]">{description}</p>}
       </div>
@@ -55,7 +55,7 @@ function TextInput({
       placeholder={placeholder}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-xl border border-black/15 bg-white px-4 py-2.5 text-sm text-[color:var(--ink)] outline-none ring-[color:var(--highlight)] transition placeholder:text-[color:var(--ink-soft)]/50 focus:ring-2 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-[color:var(--ink-soft)]"
+      className="w-full rounded-xl border border-white/55 bg-white/55 px-4 py-2.5 text-sm text-[color:var(--ink)] outline-none ring-[color:var(--highlight)] backdrop-blur-sm transition placeholder:text-[color:var(--ink-soft)]/60 focus:ring-2 disabled:cursor-not-allowed disabled:bg-white/35 disabled:text-[color:var(--ink-soft)]"
     />
   );
 }
@@ -139,7 +139,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen hero-glow">
+    <div className="min-h-screen glass-page">
       <TopNav />
 
       <main className="mx-auto w-full max-w-3xl px-5 pb-20 pt-10 md:px-8">

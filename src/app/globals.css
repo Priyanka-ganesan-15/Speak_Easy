@@ -8,6 +8,10 @@
   --ink: #1e1b16;
   --ink-soft: #625646;
   --highlight: #ffbf47;
+  --glass-bg: rgba(255, 255, 255, 0.54);
+  --glass-bg-strong: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-shadow: 0 18px 40px rgba(25, 34, 54, 0.2);
 }
 
 @theme inline {
@@ -18,9 +22,13 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.62), transparent 36%),
+    radial-gradient(circle at 85% 6%, rgba(184, 226, 255, 0.46), transparent 34%),
+    linear-gradient(155deg, #dbe8ff 0%, #e3dcff 28%, #ffe7f2 62%, #ffe8d0 100%);
   color: var(--foreground);
   font-family: var(--font-body), sans-serif;
+  min-height: 100vh;
 }
 
 .font-display {
@@ -32,6 +40,36 @@ body {
     radial-gradient(circle at 20% 15%, rgba(255, 191, 71, 0.46), transparent 38%),
     radial-gradient(circle at 80% 0%, rgba(255, 140, 65, 0.32), transparent 35%),
     linear-gradient(160deg, #fef7ec 0%, #f4ecdd 52%, #efe5d6 100%);
+}
+
+.glass-page {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.58), transparent 36%),
+    radial-gradient(circle at 86% 0%, rgba(160, 228, 255, 0.42), transparent 34%),
+    linear-gradient(160deg, #dce7ff 0%, #e7deff 38%, #ffe9f3 72%, #ffe7ce 100%);
+}
+
+.glass-surface {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-surface-strong {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 20px 44px rgba(25, 34, 54, 0.24);
+}
+
+.glass-chip {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .fade-rise {
