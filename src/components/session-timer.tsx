@@ -81,7 +81,7 @@ export function SessionTimer() {
         />
       </div>
 
-      <div className="mt-6 rounded-2xl border border-white/45 bg-white/46 p-5 text-center backdrop-blur-sm">
+      <div className="glass-surface-soft mt-6 rounded-2xl p-5 text-center">
         <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ink-soft)]">Current Phase</p>
         <p className="mt-2 font-display text-3xl text-[color:var(--ink)]">{phaseLabel}</p>
         <p className="mt-2 text-5xl font-bold text-[color:var(--ink)]">{formatTime(Math.max(0, remaining))}</p>
@@ -117,7 +117,7 @@ type DurationPickerProps = {
 
 function DurationPicker({ label, value, onChange, disabled }: DurationPickerProps) {
   return (
-    <div className="rounded-2xl border border-white/45 bg-white/42 p-4 backdrop-blur-sm">
+    <div className="glass-surface-soft rounded-2xl p-4">
       <p className="text-sm text-[color:var(--ink-soft)]">{label}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {durationOptions.map((option) => (

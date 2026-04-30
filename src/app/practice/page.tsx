@@ -25,15 +25,15 @@ export default function PracticePage() {
         <section className="glass-surface mt-8 rounded-3xl p-6">
           <h2 className="font-display text-2xl text-[color:var(--ink)]">Upcoming Integration Slots</h2>
           <div className="mt-4 grid gap-3 text-sm text-[color:var(--ink-soft)] md:grid-cols-3">
-            <div className="rounded-xl border border-white/45 bg-white/40 p-4 backdrop-blur-sm">
+            <div className="glass-surface-soft rounded-xl p-4">
               <p className="font-medium text-[color:var(--ink)]">Audio Capture</p>
               <p className="mt-2">MediaRecorder integration with pause-proof upload state.</p>
             </div>
-            <div className="rounded-xl border border-white/45 bg-white/40 p-4 backdrop-blur-sm">
+            <div className="glass-surface-soft rounded-xl p-4">
               <p className="font-medium text-[color:var(--ink)]">Speech-to-Text</p>
               <p className="mt-2">Async transcript pipeline with queue states and retries.</p>
             </div>
-            <div className="rounded-xl border border-white/45 bg-white/40 p-4 backdrop-blur-sm">
+            <div className="glass-surface-soft rounded-xl p-4">
               <p className="font-medium text-[color:var(--ink)]">AI Feedback</p>
               <p className="mt-2">Rubric score, strengths, weak points, and drills per topic.</p>
             </div>
