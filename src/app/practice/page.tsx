@@ -1,6 +1,5 @@
 import { TopNav } from "@/components/top-nav";
-import { SessionTimer } from "@/components/session-timer";
-import { TopicWheel } from "@/components/topic-wheel";
+import { PracticeStudio } from "@/components/practice-studio";
 import { topics } from "@/lib/mock-data";
 
 export default function PracticePage() {
@@ -16,10 +15,7 @@ export default function PracticePage() {
           </p>
         </section>
 
-        <section className="mt-8 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-          <TopicWheel topics={topics} />
-          <SessionTimer />
-        </section>
+        <PracticeStudio topics={topics} />
       </main>
     </div>
   );

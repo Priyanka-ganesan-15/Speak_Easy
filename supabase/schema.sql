@@ -20,10 +20,12 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "Users can view their own profile" on public.profiles;
 create policy "Users can view their own profile"
   on public.profiles for select
   using (auth.uid() = id);
 
+drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
   on public.profiles for update
   using (auth.uid() = id);
@@ -63,6 +65,7 @@ create table if not exists public.user_goals (
 
 alter table public.user_goals enable row level security;
 
+drop policy if exists "Users can manage their own goals" on public.user_goals;
 create policy "Users can manage their own goals"
   on public.user_goals for all
   using (auth.uid() = user_id)
@@ -80,15 +83,79 @@ create table if not exists public.practice_sessions (
   speech_seconds int not null default 0,
   word_count   int,
   wpm          numeric(6,2),
+  final_wpm    numeric(6,2),
+  audio_url    text,
+  transcribed_text text,
+  transcription_status text not null default 'not_requested',
+  transcription_error text,
   completed_at timestamptz not null default now()
 );
 
+alter table public.practice_sessions add column if not exists final_wpm numeric(6,2);
+alter table public.practice_sessions add column if not exists audio_url text;
+alter table public.practice_sessions add column if not exists transcribed_text text;
+alter table public.practice_sessions add column if not exists transcription_status text not null default 'not_requested';
+alter table public.practice_sessions add column if not exists transcription_error text;
+alter table public.practice_sessions add column if not exists analysis_json jsonb;
+
 alter table public.practice_sessions enable row level security;
 
+drop policy if exists "Users can manage their own sessions" on public.practice_sessions;
 create policy "Users can manage their own sessions"
   on public.practice_sessions for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'practice_sessions_transcription_status_check'
+  ) then
+    alter table public.practice_sessions
+      add constraint practice_sessions_transcription_status_check
+      check (transcription_status in ('not_requested', 'pending', 'ready', 'failed'));
+  end if;
+end;
+$$;
+
+-- ----------------------------------------------------------
+-- Storage: session-audio bucket
+-- ----------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'session-audio',
+  'session-audio',
+  false,
+  52428800,
+  array['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp4']
+)
+on conflict (id) do nothing;
+
+drop policy if exists "Users can upload own session audio" on storage.objects;
+create policy "Users can upload own session audio"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'session-audio'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can read own session audio" on storage.objects;
+create policy "Users can read own session audio"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'session-audio'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can delete own session audio" on storage.objects;
+create policy "Users can delete own session audio"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'session-audio'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 -- ----------------------------------------------------------
 -- Handy view: weekly actuals (current ISO week)
@@ -98,7 +165,7 @@ select
   user_id,
   count(*)                                      as sessions_completed,
   coalesce(sum(speech_seconds) / 60.0, 0)      as minutes_practiced,
-  coalesce(avg(wpm), 0)                         as avg_wpm
+  coalesce(avg(coalesce(final_wpm, wpm)), 0)    as avg_wpm
 from public.practice_sessions
 where completed_at >= date_trunc('week', now())
 group by user_id;

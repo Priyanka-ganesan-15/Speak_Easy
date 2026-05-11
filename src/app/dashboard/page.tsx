@@ -4,18 +4,43 @@ import { StatCard } from "@/components/stat-card";
 import { TrendBars } from "@/components/trend-bars";
 import { ViewportReveal } from "@/components/viewport-reveal";
 import { createClient } from "@/lib/supabase/server";
-import {
-  coachingSignals,
-  pauseDistribution,
-  rubricScores,
-  trendData,
-  weeklyDeliverySeries,
-} from "@/lib/mock-data";
+import type { AnalysisReport } from "@/lib/analysis/types";
 
 export const dynamic = 'force-dynamic';
 
 const RING_R = 36;
 const RING_C = 2 * Math.PI * RING_R;
+
+type CoachingSignal = {
+  title: string;
+  detail: string;
+  tone: "positive" | "focus";
+};
+
+type WeeklyDeliveryPoint = {
+  day: string;
+  wordsPerMinute: number;
+  fillerWordsPerMinute: number;
+};
+
+type RubricScore = {
+  label: string;
+  score: number;
+};
+
+type PauseBucket = {
+  bucket: "< 1s" | "1-2s" | "2-3s" | "> 3s";
+  value: number;
+};
+
+function avg(values: number[]) {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -47,7 +72,7 @@ export default async function DashboardPage() {
   const { data: weekSessions } = user
     ? await supabase
         .from("practice_sessions")
-        .select("speech_seconds, wpm")
+        .select("speech_seconds, wpm, final_wpm")
         .eq("user_id", user.id)
         .gte("completed_at", weekStart.toISOString())
     : { data: [] };
@@ -57,7 +82,7 @@ export default async function DashboardPage() {
     sessionsCompleted: sessionsArr.length,
     minutesPracticed: Math.round(sessionsArr.reduce((s, r) => s + (r.speech_seconds ?? 0), 0) / 60),
     avgWpm: sessionsArr.length
-      ? Math.round(sessionsArr.reduce((s, r) => s + (r.wpm ?? 0), 0) / sessionsArr.length)
+      ? Math.round(sessionsArr.reduce((s, r) => s + (r.final_wpm ?? r.wpm ?? 0), 0) / sessionsArr.length)
       : 0,
   };
 
@@ -65,39 +90,290 @@ export default async function DashboardPage() {
   const { data: sessionsData } = user
     ? await supabase
         .from("practice_sessions")
-        .select("id, topic, wpm, speech_seconds, completed_at")
+        .select("id, topic, wpm, final_wpm, transcription_status, speech_seconds, completed_at, analysis_json")
         .eq("user_id", user.id)
         .order("completed_at", { ascending: false })
         .limit(5)
     : { data: [] };
 
-  const recentSessions = (sessionsData ?? []).map((s) => ({
-    date: new Date(s.completed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    topic: s.topic,
-    score: s.wpm ? Math.round(Math.min((s.wpm / 160) * 100, 100)) : 0,
-    duration: `${Math.floor((s.speech_seconds ?? 0) / 60)}m ${(s.speech_seconds ?? 0) % 60}s`,
+  const recentSessions = (sessionsData ?? []).map((s) => {
+    const analysis = s.analysis_json as AnalysisReport | null;
+    const overallScore = analysis?.summary.overall
+      ?? ((s.final_wpm ?? s.wpm) ? Math.round(Math.min(((s.final_wpm ?? s.wpm ?? 0) / 160) * 100, 100)) : 0);
+    const chips: string[] = [];
+    if (analysis) {
+      chips.push(`${analysis.summary.finalWpm} WPM`);
+      if (analysis.content.fillerWordsPerMin > 0) chips.push(`${analysis.content.fillerWordsPerMin} fillers/min`);
+      if (analysis.delivery.volumeRating === "monotone") chips.push("Monotone");
+      if (analysis.delivery.wpmRating !== "good") chips.push(analysis.delivery.wpmRating === "slow" ? "Slow pace" : "Fast pace");
+    }
+    return {
+      id: s.id,
+      date: new Date(s.completed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      topic: s.topic,
+      transcriptionStatus: s.transcription_status,
+      overallScore,
+      deliveryScore: analysis?.summary.delivery ?? null,
+      contentScore: analysis?.summary.content ?? null,
+      wpmLabel:
+        s.transcription_status === "pending"
+          ? "Processing"
+          : s.transcription_status === "failed"
+            ? "Analysis failed"
+            : s.final_wpm ?? s.wpm
+              ? `${Math.round(s.final_wpm ?? s.wpm ?? 0)} WPM`
+              : "Not measured",
+      duration: `${Math.floor((s.speech_seconds ?? 0) / 60)}m ${(s.speech_seconds ?? 0) % 60}s`,
+      chips,
+      hasAnalysis: !!analysis,
+    };
+  });
+
+  // ── analysis-driven insights (last 120 sessions) ─────────────────────────
+  const { data: analyticsData } = user
+    ? await supabase
+        .from("practice_sessions")
+        .select("completed_at, speech_seconds, wpm, final_wpm, analysis_json")
+        .eq("user_id", user.id)
+        .order("completed_at", { ascending: true })
+        .limit(120)
+    : { data: [] };
+
+  const analyticsSessions = (analyticsData ?? []).map((s) => ({
+    completedAt: s.completed_at,
+    speechSeconds: s.speech_seconds ?? 0,
+    wpm: s.final_wpm ?? s.wpm ?? 0,
+    analysis: (s.analysis_json as AnalysisReport | null) ?? null,
   }));
+
+  const analyzed = analyticsSessions.filter((s) => s.analysis !== null);
+  const analyzedReports = analyzed.map((s) => s.analysis as AnalysisReport);
+
+  const avgOverall = Math.round(avg(analyzedReports.map((a) => a.summary.overall)));
+  const avgFillerPerMin = Number(avg(analyzedReports.map((a) => a.content.fillerWordsPerMin)).toFixed(1));
+
+  // Activity streak (consecutive active days based on most recent session day)
+  const uniqueSessionDays = [...new Set(analyticsSessions.map((s) => s.completedAt.slice(0, 10)))]
+    .map((d) => Math.floor(new Date(`${d}T00:00:00Z`).getTime() / 86400000))
+    .sort((a, b) => b - a);
+  let streakDays = 0;
+  for (let i = 0; i < uniqueSessionDays.length; i += 1) {
+    if (i === 0) {
+      streakDays = 1;
+      continue;
+    }
+    if (uniqueSessionDays[i - 1] - uniqueSessionDays[i] === 1) {
+      streakDays += 1;
+    } else {
+      break;
+    }
+  }
+
+  // 30-day deltas for hero chips
+  const nowMs = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const last30Analyzed = analyzed.filter((s) => nowMs - new Date(s.completedAt).getTime() <= 30 * DAY_MS);
+  const prev30Analyzed = analyzed.filter((s) => {
+    const age = nowMs - new Date(s.completedAt).getTime();
+    return age > 30 * DAY_MS && age <= 60 * DAY_MS;
+  });
+
+  const clarityLast30 = avg(last30Analyzed.map((s) => (s.analysis as AnalysisReport).content.clarityScore));
+  const clarityPrev30 = avg(prev30Analyzed.map((s) => (s.analysis as AnalysisReport).content.clarityScore));
+  const clarityDeltaMonth = Math.round(clarityLast30 - clarityPrev30);
+
+  const fillerLast30 = avg(last30Analyzed.map((s) => (s.analysis as AnalysisReport).content.fillerWordsPerMin));
+  const fillerPrev30 = avg(prev30Analyzed.map((s) => (s.analysis as AnalysisReport).content.fillerWordsPerMin));
+  const fillerDeltaMonth = Number((fillerLast30 - fillerPrev30).toFixed(1));
 
   // ── stats cards ───────────────────────────────────────────────────────────
   const { data: allSessions } = user
     ? await supabase
         .from("practice_sessions")
-        .select("wpm, speech_seconds")
+        .select("wpm, final_wpm, speech_seconds")
         .eq("user_id", user.id)
     : { data: [] };
 
   const all = allSessions ?? [];
   const totalMinutes = Math.round(all.reduce((s, r) => s + (r.speech_seconds ?? 0), 0) / 60);
   const avgWpmAll = all.length
-    ? Math.round(all.reduce((s, r) => s + (r.wpm ?? 0), 0) / all.length)
+    ? Math.round(all.reduce((s, r) => s + (r.final_wpm ?? r.wpm ?? 0), 0) / all.length)
     : 0;
 
   const statsCards = [
-    { label: "Total sessions", value: String(all.length), delta: "" },
-    { label: "Avg WPM", value: avgWpmAll > 0 ? String(avgWpmAll) : "—", delta: "" },
-    { label: "Minutes practiced", value: String(totalMinutes), delta: "" },
-    { label: "This week", value: String(weeklyActuals.sessionsCompleted), delta: "" },
+    { label: "Total sessions", value: String(all.length), delta: `${weeklyActuals.sessionsCompleted} this week` },
+    { label: "Avg WPM", value: avgWpmAll > 0 ? String(avgWpmAll) : "—", delta: "across all sessions" },
+    { label: "Avg overall score", value: analyzed.length > 0 ? `${avgOverall}/100` : "—", delta: `${analyzed.length} analysed` },
+    { label: "Avg fillers / min", value: analyzed.length > 0 ? String(avgFillerPerMin) : "—", delta: "lower is better" },
   ];
+
+  // 7-day delivery series
+  const today = new Date();
+  const deliverySeries: WeeklyDeliveryPoint[] = Array.from({ length: 7 }).map((_, idx) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - idx));
+    const key = date.toISOString().slice(0, 10);
+    const dayRows = analyticsSessions.filter((s) => s.completedAt.slice(0, 10) === key);
+    const dayAnalysed = dayRows.filter((s) => s.analysis !== null).map((s) => s.analysis as AnalysisReport);
+
+    return {
+      day: date.toLocaleDateString("en-US", { weekday: "short" }),
+      wordsPerMinute: Math.round(
+        dayAnalysed.length > 0
+          ? avg(dayAnalysed.map((a) => a.summary.finalWpm))
+          : avg(dayRows.map((r) => r.wpm)),
+      ),
+      fillerWordsPerMinute: Number(
+        (dayAnalysed.length > 0 ? avg(dayAnalysed.map((a) => a.content.fillerWordsPerMin)) : 0).toFixed(1),
+      ),
+    };
+  });
+
+  // Weekly trend bars (last 5 full/partial weeks)
+  const weekStartLocal = new Date();
+  weekStartLocal.setDate(weekStartLocal.getDate() - weekStartLocal.getDay());
+  weekStartLocal.setHours(0, 0, 0, 0);
+
+  const trendRows = Array.from({ length: 5 }).map((_, idx) => {
+    const start = new Date(weekStartLocal);
+    start.setDate(weekStartLocal.getDate() - (4 - idx) * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+
+    const weekRows = analyticsSessions.filter((s) => {
+      const d = new Date(s.completedAt);
+      return d >= start && d < end;
+    });
+    const weekAnalysed = weekRows.filter((s) => s.analysis !== null).map((s) => s.analysis as AnalysisReport);
+
+    return {
+      week: `W${idx + 1}`,
+      speed: Math.round(
+        weekAnalysed.length > 0
+          ? avg(weekAnalysed.map((a) => a.summary.finalWpm))
+          : avg(weekRows.map((r) => r.wpm)),
+      ),
+      volume: Math.round(
+        weekAnalysed.length > 0 ? avg(weekAnalysed.map((a) => a.delivery.volumeVariation * 100)) : 0,
+      ),
+      pronunciation: Math.round(
+        weekAnalysed.length > 0 ? avg(weekAnalysed.map((a) => a.content.clarityScore)) : 0,
+      ),
+    };
+  });
+
+  const rubricScores: RubricScore[] = analyzed.length > 0
+    ? [
+        { label: "Structure", score: Math.round(avg(analyzedReports.map((a) => a.content.topicRelevanceScore))) },
+        { label: "Clarity", score: Math.round(avg(analyzedReports.map((a) => a.content.clarityScore))) },
+        {
+          label: "Pacing",
+          score: Math.round(avg(analyzedReports.map((a) => (a.delivery.wpmRating === "good" ? 85 : a.delivery.wpmRating === "slow" ? 65 : 60)))),
+        },
+        {
+          label: "Vocal Variety",
+          score: Math.round(avg(analyzedReports.map((a) => ((a.delivery.volumeVariation + a.delivery.pitchVariation) / 2) * 100))),
+        },
+        { label: "Confidence", score: Math.round(avg(analyzedReports.map((a) => a.summary.delivery))) },
+      ]
+    : [
+        { label: "Structure", score: 0 },
+        { label: "Clarity", score: 0 },
+        { label: "Pacing", score: 0 },
+        { label: "Vocal Variety", score: 0 },
+        { label: "Confidence", score: 0 },
+      ];
+
+  const allPauseGaps = analyzedReports.flatMap((a) => {
+    const segments = [...a.segments].sort((x, y) => x.start - y.start);
+    const gaps: number[] = [];
+    for (let i = 1; i < segments.length; i += 1) {
+      const gap = segments[i].start - segments[i - 1].end;
+      if (gap > 0) gaps.push(gap);
+    }
+    return gaps;
+  });
+
+  const pauseDistribution: PauseBucket[] = (() => {
+    if (allPauseGaps.length === 0) {
+      return [
+        { bucket: "< 1s", value: 0 },
+        { bucket: "1-2s", value: 0 },
+        { bucket: "2-3s", value: 0 },
+        { bucket: "> 3s", value: 0 },
+      ];
+    }
+    const counts = [0, 0, 0, 0];
+    for (const g of allPauseGaps) {
+      if (g < 1) counts[0] += 1;
+      else if (g < 2) counts[1] += 1;
+      else if (g < 3) counts[2] += 1;
+      else counts[3] += 1;
+    }
+    const total = counts.reduce((sum, c) => sum + c, 0);
+    return [
+      { bucket: "< 1s", value: Math.round((counts[0] / total) * 100) },
+      { bucket: "1-2s", value: Math.round((counts[1] / total) * 100) },
+      { bucket: "2-3s", value: Math.round((counts[2] / total) * 100) },
+      { bucket: "> 3s", value: Math.round((counts[3] / total) * 100) },
+    ];
+  })();
+
+  const coachingSignals: CoachingSignal[] = (() => {
+    if (analyzed.length < 2) {
+      return [
+        {
+          title: "Build analysis history",
+          detail: "Complete a few more analysed sessions to unlock trend-based coaching.",
+          tone: "focus",
+        },
+      ];
+    }
+
+    const half = Math.floor(analyzedReports.length / 2);
+    const early = analyzedReports.slice(0, half);
+    const recent = analyzedReports.slice(half);
+    const clarityDelta = Math.round(avg(recent.map((a) => a.content.clarityScore)) - avg(early.map((a) => a.content.clarityScore)));
+    const fillerDelta = Number((avg(recent.map((a) => a.content.fillerWordsPerMin)) - avg(early.map((a) => a.content.fillerWordsPerMin))).toFixed(1));
+    const avgPitch = avg(recent.map((a) => a.delivery.pitchVariation * 100));
+    const longPauseShare = pauseDistribution.find((p) => p.bucket === "> 3s")?.value ?? 0;
+
+    return [
+      clarityDelta >= 0
+        ? {
+            title: "Clarity is improving",
+            detail: `Your clarity score is up ${clarityDelta} points versus earlier sessions.`,
+            tone: "positive",
+          }
+        : {
+            title: "Clarity slipped recently",
+            detail: `Clarity is down ${Math.abs(clarityDelta)} points. Slow down and tighten sentence structure.`,
+            tone: "focus",
+          },
+      fillerDelta <= 0
+        ? {
+            title: "Filler words are trending down",
+            detail: `${Math.abs(fillerDelta).toFixed(1)} fewer fillers/min compared to earlier sessions.`,
+            tone: "positive",
+          }
+        : {
+            title: "Filler words increased",
+            detail: `Filler usage is up ${fillerDelta.toFixed(1)} /min. Pause intentionally before key points.`,
+            tone: "focus",
+          },
+      avgPitch < 35 || longPauseShare > 15
+        ? {
+            title: "Work on vocal variety and flow",
+            detail: `Pitch variation (${Math.round(avgPitch)}%) or long pauses (${longPauseShare}%) suggest monotone stretches.`,
+            tone: "focus",
+          }
+        : {
+            title: "Strong delivery dynamics",
+            detail: `Pitch variation and pause control are in a healthy range this week. Keep it up.`,
+            tone: "positive",
+          },
+    ];
+  })();
   return (
     <div className="min-h-screen glass-page">
       <TopNav />
@@ -111,13 +387,36 @@ export default async function DashboardPage() {
           <p className="text-sm uppercase tracking-[0.16em] text-[color:var(--ink-soft)]">Dashboard</p>
           <h1 className="mt-4 font-display text-5xl leading-tight text-[color:var(--ink)]">Welcome back, {displayName}.</h1>
           <p className="mt-4 max-w-2xl text-[color:var(--ink-soft)]">
-            Your delivery quality is improving with stronger structure and fewer long pauses. Next focus area is vocal
-            variety across the middle of longer talks.
+            {analyzed.length > 0
+              ? `Based on ${analyzed.length} analysed sessions, your average score is ${avgOverall}/100 and filler usage is ${avgFillerPerMin}/min.`
+              : "Complete your first analysed session to unlock personalised coaching insights and delivery trends."}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <span className="glass-chip anim-enter rounded-full px-3 py-1 text-xs font-semibold text-[color:var(--ink)]" style={{ animationDelay: "200ms" }}>Streak: 6 days</span>
-            <span className="glass-chip anim-enter rounded-full px-3 py-1 text-xs font-semibold text-emerald-700" style={{ animationDelay: "280ms" }}>Clarity +9 this month</span>
-            <span className="glass-chip anim-enter rounded-full px-3 py-1 text-xs font-semibold text-amber-700" style={{ animationDelay: "360ms" }}>Filler words down</span>
+            <span className="glass-chip anim-enter rounded-full px-3 py-1 text-xs font-semibold text-[color:var(--ink)]" style={{ animationDelay: "200ms" }}>
+              Streak: {streakDays} {streakDays === 1 ? "day" : "days"}
+            </span>
+            <span
+              className={`glass-chip anim-enter rounded-full px-3 py-1 text-xs font-semibold ${
+                clarityDeltaMonth >= 0 ? "text-emerald-700" : "text-amber-700"
+              }`}
+              style={{ animationDelay: "280ms" }}
+            >
+              {prev30Analyzed.length > 0
+                ? `Clarity ${clarityDeltaMonth >= 0 ? "+" : ""}${clarityDeltaMonth} this month`
+                : `Clarity ${Math.round(clarityLast30 || 0)}/100 (30d)`}
+            </span>
+            <span
+              className={`glass-chip anim-enter rounded-full px-3 py-1 text-xs font-semibold ${
+                fillerDeltaMonth <= 0 ? "text-emerald-700" : "text-amber-700"
+              }`}
+              style={{ animationDelay: "360ms" }}
+            >
+              {prev30Analyzed.length > 0
+                ? fillerDeltaMonth <= 0
+                  ? `Filler words down ${Math.abs(fillerDeltaMonth)}/min`
+                  : `Filler words up ${fillerDeltaMonth}/min`
+                : `Filler avg ${Number(fillerLast30.toFixed(1)) || 0}/min`}
+            </span>
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
@@ -127,13 +426,14 @@ export default async function DashboardPage() {
             >
               Start New Session
             </Link>
-            <button
-              type="button"
+            <a
+              href="/api/report"
+              download
               className="glass-chip anim-enter rounded-full px-6 py-3 text-sm font-medium text-[color:var(--ink)] transition hover:bg-white/80"
               style={{ animationDelay: "500ms" }}
             >
-              Export Weekly Report
-            </button>
+              Download Report
+            </a>
           </div>
           </section>
         </ViewportReveal>
@@ -154,7 +454,7 @@ export default async function DashboardPage() {
 
         <ViewportReveal delayMs={120}>
           <section className="mt-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <TrendBars rows={trendData} />
+            <TrendBars rows={trendRows} />
             <article className="glass-surface glass-hover anim-enter rounded-2xl p-5" style={{ animationDelay: "720ms" }}>
               <h2 className="font-display text-2xl text-[color:var(--ink)]">Coaching Signals</h2>
               <div className="mt-4 space-y-3">
@@ -178,24 +478,45 @@ export default async function DashboardPage() {
 
         <ViewportReveal delayMs={140}>
           <section className="mt-8 grid gap-4 lg:grid-cols-2">
-            <DeliveryChart />
-            <RubricBreakdown />
+            <DeliveryChart series={deliverySeries} />
+            <RubricBreakdown scores={rubricScores} />
           </section>
         </ViewportReveal>
 
         <ViewportReveal delayMs={160}>
           <section className="mt-8 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <PauseChart />
+            <PauseChart distribution={pauseDistribution} />
             <article className="glass-surface glass-hover anim-enter rounded-2xl p-5" style={{ animationDelay: "980ms" }}>
               <h2 className="font-display text-2xl text-[color:var(--ink)]">Recent Sessions</h2>
               <div className="mt-4 space-y-3">
                 {recentSessions.map((session, index) => (
-                  <div key={`${session.date}-${session.topic}`} className="glass-surface-soft anim-enter rounded-xl p-3" style={{ animationDelay: `${1080 + index * 90}ms` }}>
-                    <p className="text-xs uppercase tracking-wide text-[color:var(--ink-soft)]">{session.date}</p>
-                    <p className="mt-1 text-sm font-medium text-[color:var(--ink)]">{session.topic}</p>
-                    <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
-                      Score: {session.score}/100 · Duration: {session.duration}
-                    </p>
+                  <div key={session.id} className="glass-surface-soft anim-enter rounded-xl p-3" style={{ animationDelay: `${1080 + index * 90}ms` }}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-[color:var(--ink-soft)]">{session.date}</p>
+                        <p className="mt-1 text-sm font-medium text-[color:var(--ink)]">{session.topic}</p>
+                      </div>
+                      {session.hasAnalysis && (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                          session.overallScore >= 75 ? "bg-emerald-100 text-emerald-700" :
+                          session.overallScore >= 50 ? "bg-amber-100 text-amber-700" :
+                          "bg-rose-100 text-rose-700"
+                        }`}>{session.overallScore}/100</span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-xs text-[color:var(--ink-soft)]">{session.duration} · {session.wpmLabel}</p>
+                    {session.hasAnalysis && session.deliveryScore !== null && (
+                      <p className="mt-1 text-xs text-[color:var(--ink-soft)]">
+                        Delivery {session.deliveryScore}/100 · Content {session.contentScore}/100
+                      </p>
+                    )}
+                    {session.chips.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {session.chips.map((chip) => (
+                          <span key={chip} className="rounded-full bg-white/50 px-2 py-0.5 text-[11px] text-[color:var(--ink-soft)]">{chip}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -342,21 +663,23 @@ function WeeklyGoals({
   );
 }
 
-function DeliveryChart() {
+function DeliveryChart({ series }: { series: WeeklyDeliveryPoint[] }) {
   const maxWpm = 170;
   const maxFiller = 3;
 
-  const wpmPoints = weeklyDeliverySeries
+  const safeSeries = series.length > 1 ? series : [{ day: "N/A", wordsPerMinute: 0, fillerWordsPerMinute: 0 }, { day: "N/A", wordsPerMinute: 0, fillerWordsPerMinute: 0 }];
+
+  const wpmPoints = safeSeries
     .map((item, idx) => {
-      const x = (idx / (weeklyDeliverySeries.length - 1)) * 100;
+      const x = (idx / (safeSeries.length - 1)) * 100;
       const y = 100 - (item.wordsPerMinute / maxWpm) * 100;
       return `${x},${y}`;
     })
     .join(" ");
 
-  const fillerPoints = weeklyDeliverySeries
+  const fillerPoints = safeSeries
     .map((item, idx) => {
-      const x = (idx / (weeklyDeliverySeries.length - 1)) * 100;
+      const x = (idx / (safeSeries.length - 1)) * 100;
       const y = 100 - (item.fillerWordsPerMinute / maxFiller) * 100;
       return `${x},${y}`;
     })
@@ -385,13 +708,13 @@ function DeliveryChart() {
   );
 }
 
-function RubricBreakdown() {
+function RubricBreakdown({ scores }: { scores: RubricScore[] }) {
   return (
     <article className="glass-surface glass-hover anim-enter rounded-2xl p-5" style={{ animationDelay: "900ms" }}>
       <h2 className="font-display text-2xl text-[color:var(--ink)]">Rubric Breakdown</h2>
       <p className="mt-1 text-sm text-[color:var(--ink-soft)]">How your speech quality is scored</p>
       <div className="mt-5 space-y-3">
-        {rubricScores.map((item, index) => (
+        {scores.map((item, index) => (
           <div key={item.label} className="anim-enter" style={{ animationDelay: `${980 + index * 80}ms` }}>
             <div className="mb-1 flex items-center justify-between text-sm">
               <span className="text-[color:var(--ink-soft)]">{item.label}</span>
@@ -410,7 +733,7 @@ function RubricBreakdown() {
   );
 }
 
-function PauseChart() {
+function PauseChart({ distribution }: { distribution: PauseBucket[] }) {
   return (
     <article className="glass-surface glass-hover anim-enter rounded-2xl p-5" style={{ animationDelay: "940ms" }}>
       <h2 className="font-display text-2xl text-[color:var(--ink)]">Pause Distribution</h2>
@@ -420,11 +743,17 @@ function PauseChart() {
           className="anim-enter mx-auto h-28 w-28 rounded-full border border-black/10"
           style={{
             animationDelay: "1040ms",
-            background: "conic-gradient(#2a9d8f 0% 54%, #ffb703 54% 85%, #fb8500 85% 95%, #d62828 95% 100%)",
+            background: (() => {
+              const [a, b, c, d] = distribution;
+              const p1 = a?.value ?? 0;
+              const p2 = p1 + (b?.value ?? 0);
+              const p3 = p2 + (c?.value ?? 0);
+              return `conic-gradient(#2a9d8f 0% ${p1}%, #ffb703 ${p1}% ${p2}%, #fb8500 ${p2}% ${p3}%, #d62828 ${p3}% 100%)`;
+            })(),
           }}
         />
         <div className="space-y-2 text-sm">
-          {pauseDistribution.map((bucket, idx) => {
+          {distribution.map((bucket, idx) => {
             const colors = ["#2a9d8f", "#ffb703", "#fb8500", "#d62828"];
             return (
               <div key={bucket.bucket} className="anim-enter flex items-center justify-between text-[color:var(--ink-soft)]" style={{ animationDelay: `${1120 + idx * 80}ms` }}>

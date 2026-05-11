@@ -137,32 +137,43 @@ export default function SettingsPage() {
   const [privacySaved, setPrivacySaved]   = useState(false);
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ── load data on mount ──────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
-      const supabase = getSupabase();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
-      setEmail(user.email ?? "");
+      try {
+        const supabase = getSupabase();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!user) { setLoading(false); return; }
+        setUserId(user.id);
+        setEmail(user.email ?? "");
 
-      const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("display_name")
         .eq("id", user.id)
         .single();
-      if (profile) setDisplayName(profile.display_name ?? "");
+        if (profileError && profileError.code !== "PGRST116") throw profileError;
+        if (profile) setDisplayName(profile.display_name ?? "");
 
-      const { data: goals } = await supabase
+        const { data: goals, error: goalsError } = await supabase
         .from("user_goals")
         .select("target_wpm, sessions_per_week, minutes_per_session")
         .eq("user_id", user.id)
         .single();
-      if (goals) {
-        setGoalWpm(String(goals.target_wpm));
-        setGoalSessions(String(goals.sessions_per_week));
-        setGoalMinutes(String(goals.minutes_per_session));
+        if (goalsError && goalsError.code !== "PGRST116") throw goalsError;
+        if (goals) {
+          setGoalWpm(String(goals.target_wpm));
+          setGoalSessions(String(goals.sessions_per_week));
+          setGoalMinutes(String(goals.minutes_per_session));
+        }
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : "Failed to load settings");
+      } finally {
+        setLoading(false);
       }
     }
     load();
@@ -203,6 +214,38 @@ export default function SettingsPage() {
     router.refresh();
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen glass-page">
+        <TopNav />
+        <main className="mx-auto w-full max-w-3xl px-5 pb-20 pt-10 md:px-8">
+          <div className="mb-8">
+            <div className="h-3.5 w-20 animate-pulse rounded-xl bg-black/8" />
+            <div className="mt-3 h-10 w-32 animate-pulse rounded-xl bg-black/8" />
+          </div>
+          <div className="flex flex-col gap-6">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="glass-surface rounded-3xl p-6 md:p-8">
+                <div className="mb-6 border-b border-white/35 pb-5">
+                  <div className="h-6 w-32 animate-pulse rounded-xl bg-black/8" />
+                  <div className="mt-2 h-4 w-56 animate-pulse rounded-xl bg-black/8" />
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <div key={j} className="grid gap-1.5">
+                      <div className="h-4 w-24 animate-pulse rounded-xl bg-black/8" />
+                      <div className="h-10 w-full animate-pulse rounded-xl bg-black/8" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen glass-page">
       <TopNav />
@@ -214,6 +257,12 @@ export default function SettingsPage() {
           <p className="text-sm uppercase tracking-[0.16em] text-[color:var(--ink-soft)]">Account</p>
           <h1 className="mt-2 font-display text-4xl text-[color:var(--ink)]">Settings</h1>
         </div>
+
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50/80 px-5 py-4 text-sm text-rose-700">
+            <strong>Error loading settings:</strong> {loadError}
+          </div>
+        )}
 
         <div className="flex flex-col gap-6">
 

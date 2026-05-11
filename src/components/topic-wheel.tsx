@@ -5,6 +5,7 @@ import type { Topic } from "@/lib/mock-data";
 
 type TopicWheelProps = {
   topics: Topic[];
+  onTopicChange?: (topic: Topic) => void;
 };
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ const CAT: Record<string, { bg: string; text: string }> = {
 function easeOutQuart(t: number) { return 1 - (1 - t) ** 4; }
 
 // ─── component ───────────────────────────────────────────────────────────────
-export function TopicWheel({ topics }: TopicWheelProps) {
+export function TopicWheel({ topics, onTopicChange }: TopicWheelProps) {
   const [centerIdx, setCenterIdx] = useState(0);
   const [isSpinning, setIsSpinning]   = useState(false);
   const [justLanded, setJustLanded]   = useState(false);
@@ -72,6 +73,8 @@ export function TopicWheel({ topics }: TopicWheelProps) {
       } else {
         setIsSpinning(false);
         setJustLanded(true);
+        const landedTopic = topics[(originRef.current + steps) % topics.length];
+        onTopicChange?.(landedTopic);
       }
     };
 

@@ -51,3 +51,8 @@ npm run build
 	- scoring and coaching feedback
 	- analytics persistence for pace, volume, pronunciation trends
 
+curl -i -X POST \
+  https://ccuhememfctlxtrmlcrh.supabase.co/functions/v1/transcribe-session \
+  -H "Authorization: Bearer PASTE_ACCESS_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"5602bd0e-af04-49a1-a199-ddee96584d29"}'

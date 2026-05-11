@@ -6,6 +6,12 @@ const durationOptions = [1, 3, 5, 10];
 
 type SessionPhase = "idle" | "prep" | "speech" | "completed";
 
+type SessionTimerProps = {
+  onComplete?: (speechSeconds: number) => void;
+  onPhaseChange?: (phase: SessionPhase) => void;
+  onDurationsChange?: (prepSeconds: number, speechSeconds: number) => void;
+};
+
 function formatTime(totalSeconds: number) {
   const min = Math.floor(totalSeconds / 60)
     .toString()
@@ -14,11 +20,19 @@ function formatTime(totalSeconds: number) {
   return `${min}:${sec}`;
 }
 
-export function SessionTimer() {
+export function SessionTimer({ onComplete, onPhaseChange, onDurationsChange }: SessionTimerProps) {
   const [prepMinutes, setPrepMinutes] = useState(3);
   const [speechMinutes, setSpeechMinutes] = useState(3);
   const [phase, setPhase] = useState<SessionPhase>("idle");
   const [remaining, setRemaining] = useState(prepMinutes * 60);
+
+  useEffect(() => {
+    onPhaseChange?.(phase);
+  }, [onPhaseChange, phase]);
+
+  useEffect(() => {
+    onDurationsChange?.(prepMinutes * 60, speechMinutes * 60);
+  }, [onDurationsChange, prepMinutes, speechMinutes]);
 
   useEffect(() => {
     if (phase !== "prep" && phase !== "speech") return;
@@ -32,6 +46,7 @@ export function SessionTimer() {
           }
 
           setPhase("completed");
+          onComplete?.(speechMinutes * 60);
           return 0;
         }
 
